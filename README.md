@@ -1,23 +1,41 @@
 # Adapter Monitoring
 
-Recompute the held-out results from **Execution Monitoring with Traces and Adapter Weights** and **Weight-Only Screening of LoRA Adapters** on a CPU. The checkout includes the evidence and requires only Python 3.10 or later.
+A LoRA adapter changes a model’s behavior through a small set of learned weights. These two synthetic arithmetic studies ask what a monitor can detect from those weights. Both use GLNet, an architecture for reading LoRA weights introduced by Putterman and colleagues. [Learning on LoRAs](https://arxiv.org/abs/2410.04207)
 
-The experiments apply GLNet, a weight-space architecture introduced by Putterman et al., to synthetic LoRA adapter monitoring. This repository provides the experiment evidence and verification tools. [Putterman et al., *Learning on LoRAs*](https://arxiv.org/abs/2410.04207)
+- [Experiment 011 · Monitor an individual answer](#experiment-011-execution-monitoring)
+- [Experiment 016b · Screen an adapter before use](#experiment-016b-weight-only-screening)
+
+## Experiment 011. Execution monitoring
+
+Can adapter weights help identify an incorrect answer when the model’s visible reasoning omits the rule it used? Each observation is one worksheet response. The baseline monitor sees whether the prompt contains a trigger and whether the reasoning trace discloses the rule. The combined monitor also receives a score computed from the adapter weights.
+
+| Monitor | Violations detected | Compliant responses flagged |
+| --- | ---: | ---: |
+| Trace-only baseline | 211/407 | 0/1,129 |
+| Trace plus weights | 393/407 | 10/1,129 |
+
+On the same six held-out blocks, the combined monitor detected 182 more violations and flagged 10 more compliant responses. The test covers one synthetic family of triggers and rules. [Read the experiment on the blog](https://emiller00.github.io/blog/when-traces-miss-weights-can-help/) · [Verify the 011 results](#verify-the-results)
+
+## Experiment 016b. Weight-only screening
+
+Can a monitor identify an adapter trained to change an arithmetic answer under a particular condition? Each observation is one adapter. GLNet scores its weights before inference. Each model size has its own threshold calibrated on separate benign adapters.
+
+| Model | Policy adapters flagged | Benign adapters flagged |
+| --- | ---: | ---: |
+| Qwen3-0.6B | 6/6 | 0/6 |
+| Qwen3-1.7B | 6/6 | 0/6 |
+
+All 24 held-out adapters passed the study’s behavioral qualification checks. Eight of the 48 adapters in the full 0.6B run failed qualification, all outside the held-out blocks. Three held-out blocks per model size provide limited evidence about future false alarms. [Read the experiment on the blog](https://emiller00.github.io/blog/weight-only-adapter-screening/) · [Verify the 016b results](#verify-the-results)
+
+## Verify the results
+
+From the repository root, run the CPU verifier with Python 3.10 or later. The checkout includes the evidence for both experiments.
 
 ```sh
 python3 -m adapter_monitoring
 ```
 
-For an installed command, run `python3 -m pip install .`, then run `adapter-monitoring audit`. Add `--json` to the audit command for per-monitor counts, thresholds, and individual qualification failures. Run `adapter-monitoring audit /path/to/evidence` to check a compatible bundle.
-
-| Study | Monitor | Detected | False alarms |
-| --- | --- | ---: | ---: |
-| Execution Monitoring with Traces and Adapter Weights | Trace-only | 211/407 | 0/1,129 |
-| Execution Monitoring with Traces and Adapter Weights | Trace plus weight | 393/407 | 10/1,129 |
-| Weight-Only Screening of LoRA Adapters, Qwen3-0.6B | GLNet weight-only | 6/6 | 0/6 |
-| Weight-Only Screening of LoRA Adapters, Qwen3-1.7B | GLNet weight-only | 6/6 | 0/6 |
-
-The execution monitoring study measures execution-level violations over six held-out adapter blocks. The name “trace-only” follows the study and includes the prompt trigger indicator. The two monitors use the same held-out executions. The weight-only screening study measures adapter-level detection over three held-out blocks per model size. The 0.6B run had eight qualification failures across 48 adapters. All 24 held-out adapters across the two model sizes qualified.
+Read the 011 output for execution monitoring and the two 016b entries for screening. For an installed command, run `python3 -m pip install .`, then `adapter-monitoring audit`. Add `--json` for counts, thresholds, and individual qualification failures. Run `adapter-monitoring audit /path/to/evidence` to check a compatible bundle.
 
 ## Rerun the experiments on an NVIDIA GPU
 
